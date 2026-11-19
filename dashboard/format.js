@@ -6,7 +6,6 @@
     return typeof n === 'number' && isFinite(n);
   }
 
-  // Dollar amount with K/M/B suffix and one decimal, e.g. 1530000 -> "$1.5M". Missing values give "n/a".
   function formatUsd(n) {
     if (!isNum(n)) return 'n/a';
     var a = Math.abs(n);
@@ -17,18 +16,15 @@
     return sign + '$' + Math.round(a);
   }
 
-  // Signed percentage with two decimals, e.g. 3.456 -> "+3.46%". null or non-finite gives an em dash.
   function formatPercent(n) {
     if (!isNum(n)) return '\u2014';
     return (n > 0 ? '+' : '') + n.toFixed(2) + '%';
   }
 
-  // Picks the singular form for exactly 1, otherwise the plural (default: singular + "s").
   function pluralise(count, singular, plural) {
     return count === 1 ? singular : (plural || singular + 's');
   }
 
-  // "1 chain" / "3 chains"; a missing or zero count reads "no chains listed".
   function describeChainCount(n) {
     if (!isNum(n) || n <= 0) return 'no chains listed';
     return n + ' ' + pluralise(n, 'chain');

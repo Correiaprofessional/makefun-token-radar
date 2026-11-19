@@ -1,5 +1,3 @@
-/* Token Radar, "night observatory": a dark instrument ground, one mint accent that behaves like light,
-   hairline structure and monospace numerals. Everything is CSS, inline SVG and one WebGL canvas. */
 :root {
   --void: #05090a;
   --surface: #0b1214;
@@ -60,7 +58,6 @@ button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 main:focus { outline: none; }
 
-/* Sticky bar */
 .bar {
   position: sticky; top: 0; z-index: 30; height: var(--bar-h);
   display: flex; align-items: center; justify-content: space-between; gap: 24px;
@@ -88,7 +85,6 @@ main:focus { outline: none; }
 .shell { max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 40px) 64px; outline: none; }
 .section { margin-top: 96px; }
 
-/* Hero */
 .hero { padding-top: clamp(32px, 5vw, 64px); }
 .hero > * { animation: rise var(--t-slow) var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * 60ms); }
 .hero .deck { margin-top: 24px; max-width: 62ch; color: var(--ink-2); font-size: 1.1rem; }
@@ -97,7 +93,6 @@ main:focus { outline: none; }
 .stat b { display: block; font: 500 clamp(1.6rem, 1.2rem + 1.6vw, 2.5rem)/1.1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
 .stat span { display: block; margin-top: 8px; }
 
-/* Panels */
 .panel {
   background: linear-gradient(180deg, rgba(255, 255, 255, .02), transparent 40%), var(--surface);
   border: 1px solid var(--line); border-radius: 14px; padding: 24px;
@@ -115,7 +110,6 @@ main:focus { outline: none; }
 .chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--tone, var(--accent)); box-shadow: 0 0 8px var(--tone, var(--accent)); }
 .scene-fallback { margin-top: 0; color: var(--muted); }
 
-/* Controls */
 .controls {
   position: sticky; top: var(--bar-h); z-index: 20; margin: 96px calc(-1 * clamp(16px, 4vw, 40px)) 0;
   padding: 12px clamp(16px, 4vw, 40px);
@@ -142,7 +136,6 @@ select { width: auto; min-width: 180px; padding-right: 8px; }
 .seg .pill { position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 4); border-radius: 7px; background: var(--accent); transform: translateX(calc(var(--at, 0) * 100%)); transition: transform 250ms var(--ease-soft); box-shadow: 0 0 18px -4px var(--accent); }
 .count { margin-left: auto; font: .78rem var(--font-num); color: var(--muted); }
 
-/* Board table */
 .board { margin-top: 24px; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: separate; border-spacing: 0; }
@@ -185,14 +178,12 @@ th.r, td.r { text-align: right; }
 .pager button:disabled { color: var(--muted); border-color: var(--line); cursor: default; opacity: .5; }
 .empty td { color: var(--muted); }
 
-/* Bar chart */
 .chart-scroll { overflow-x: auto; margin-top: 16px; }
 .chart-scroll svg { display: block; max-width: none; }
 .bar-label, .bar-value { font: 12px var(--font-num); fill: var(--ink-2); }
 .bar-value { fill: var(--muted); }
 .vbar { fill: url(#vg); }
 
-/* Detail drawer */
 .scrim { position: fixed; inset: 0; z-index: 40; background: rgba(5, 9, 10, .55); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); opacity: 0; visibility: hidden; transition: opacity 300ms var(--ease-soft), visibility 0s linear 300ms; }
 .detail {
   position: fixed; top: 0; right: 0; bottom: 0; z-index: 41; width: min(480px, 100vw); overflow-y: auto; padding: 32px 28px 48px;
@@ -224,10 +215,8 @@ th.r, td.r { text-align: right; }
 .steps li:last-child { padding-bottom: 0; }
 .steps li:last-child::after { display: none; }
 
-/* Summary and methodology */
-.split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
-.split table { margin-top: 16px; }
-.split td { height: 44px; }
+.pane table { margin-top: 16px; }
+.pane td { height: 44px; }
 .formula { margin-top: 16px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 10px; font: .78rem/1.6 var(--font-num); color: var(--ink-2); overflow-wrap: anywhere; }
 .consts td { height: auto; padding: 10px 0; vertical-align: top; }
 .consts td:first-child { font: .82rem var(--font-num); color: var(--ink-2); padding-right: 16px; }
@@ -266,4 +255,23 @@ th.r, td.r { text-align: right; }
   .board tbody tr:hover .mbar, .board tbody tr:focus-visible .mbar { transform: none; }
   .tip > div, .tip.on > div { transform: none; }
   .seg .pill { transition: none; }
+}
+
+.tabs { padding: 0; }
+.tabs-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 24px; padding: 0 24px; border-bottom: 1px solid var(--line); }
+.tablist { position: relative; display: flex; }
+.tab { height: 44px; padding: 0 18px 0 0; margin-right: 18px; background: none; border: 0; font: 500 .72rem var(--font-num); text-transform: uppercase; letter-spacing: .16em; color: var(--muted); cursor: pointer; transition: color var(--t-quick) var(--ease-soft); }
+.tab:last-of-type { margin-right: 0; }
+.tab:hover, .tab[aria-selected="true"] { color: var(--ink); }
+.tab-line { position: absolute; left: 0; bottom: -1px; height: 2px; background: var(--accent); transition: transform 250ms var(--ease-soft), width 250ms var(--ease-soft); pointer-events: none; }
+.tab-caption { margin: 0; font: .72rem var(--font-num); color: var(--muted); }
+.tab-stage { display: grid; padding: 24px; min-height: 380px; }
+.tab-pane { grid-area: 1 / 1; min-width: 0; outline-offset: 4px; }
+.tab-pane.off { visibility: hidden; opacity: 0; }
+.tab-pane.out { opacity: 0; transition: opacity 90ms var(--ease-in); }
+.tab-pane.in { animation: pane-in 220ms var(--ease-out); }
+@keyframes pane-in { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) {
+  .tab-line { transition: none; }
+  @keyframes pane-in { from { opacity: 0; } }
 }

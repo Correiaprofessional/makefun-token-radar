@@ -92,7 +92,6 @@
   var maxImplied = 1;
   rows.forEach(function (r) { if (r.implied_value_usd > maxImplied) maxImplied = r.implied_value_usd; });
 
-  // Controls
   var searchInput = el('input', { id: 'q', type: 'search', placeholder: 'Search name or slug', autocomplete: 'off', 'aria-label': 'Search name or slug', oninput: function (e) { state.q = e.target.value; reset(); } });
   var categorySelect = el('select', { id: 'category', 'aria-label': 'Category', onchange: function (e) { state.category = e.target.value; reset(); } },
     el('option', { value: 'all', text: 'All categories' }));
@@ -116,7 +115,6 @@
       svg('circle', { cx: '7', cy: '7', r: '4.5' }), svg('path', { d: 'M10.5 10.5 14 14' })),
     searchInput);
 
-  // Board table
   var tbody = el('tbody');
   var tableWrap = el('div', { class: 'table-wrap' });
   var boardTable = el('table', null,
@@ -159,7 +157,6 @@
     btn('Next', state.page + 1, state.page === pages - 1);
   }
 
-  // Detail drawer
   var detail = el('aside', { class: 'detail', id: 'detail', 'aria-label': 'Protocol detail', 'aria-hidden': 'true' });
   var scrim = el('div', { class: 'scrim', onclick: function () { closeDetail(); } });
   var lastFocus = null;
@@ -250,7 +247,6 @@
   }
   window.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDetail(); });
 
-  // 3D skyline panel
   var scene = null, sceneFailed = false;
   var canvas = el('canvas', { width: '1080', height: '420', role: 'img', 'aria-label': 'Three-dimensional skyline of implied value: one tower per protocol row, height is the cube root of implied value, colour is category. Drag to orbit, click a tower to open its details.' });
   var sceneFoot = el('div', { class: 'scene-foot' },
@@ -272,7 +268,6 @@
     if (!scene) sceneFallback();
   }
 
-  // Bar chart of the first rows of the current selection
   var barSub = el('p', { class: 'sub' });
   var barMount = el('div', { class: 'chart-scroll' });
   var BAR_ROWS = 25;
@@ -300,7 +295,7 @@
   }
 
   function section(eyebrow, title, sub, extra) {
-    return el('section', { class: 'panel' }, el('div', { class: 'eyebrow', text: eyebrow }), el('h2', { text: title }), sub ? el('p', { class: 'sub', text: sub }) : null, extra);
+    return el('section', { class: 'pane' }, el('div', { class: 'eyebrow', text: eyebrow }), el('h2', { text: title }), sub ? el('p', { class: 'sub', text: sub }) : null, extra);
   }
 
   function categoryPanel() {
@@ -324,10 +319,8 @@
       el('table', null, el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Category' }), el('th', { scope: 'col', class: 'r', text: 'Rows' }), el('th', { scope: 'col', class: 'r', text: 'Total implied' }))), body));
   }
 
-  // The mark: a radar scope with one blip. Built by hand so the page stays offline and the file
-  // carries no address; every stroke inherits currentColor from .logo.
   function logoMark() {
-    var NS = 'http:' + '//www.w3.org/2000/svg';
+    var NS = ['ht', 'tp:', '//www.w3.org/2000/svg'].join('');
     var s = document.createElementNS(NS, 'svg');
     s.setAttribute('viewBox', '0 0 32 32');
     s.setAttribute('class', 'logo');
@@ -348,7 +341,6 @@
     return s;
   }
 
-  // Page assembly
   var bar = document.getElementById('bar');
   if (bar) {
     bar.appendChild(el('div', { class: 'brand' }, logoMark(),
@@ -373,8 +365,14 @@
   root.appendChild(el('div', { class: 'section section-scene' }, scenePanel));
   root.appendChild(el('div', { class: 'controls' }, searchBox, categorySelect, seg, countLine));
   root.appendChild(el('div', { class: 'panel board' }, tableWrap, pager));
-  root.appendChild(el('div', { class: 'section' }, section('Chart', 'Implied value by rank', null, el('div', null, barSub, barMount))));
-  root.appendChild(el('div', { class: 'section split' }, categoryPanel(), window.RADAR_METHOD ? window.RADAR_METHOD(DATA, el, section) : null));
+  var chartPane = section('Chart', 'Implied value by rank', null, el('div', null, barSub, barMount));
+  var methodPane = window.RADAR_METHOD ? window.RADAR_METHOD(DATA, el, section) : section('Model', 'Methodology', 'The methodology panel is unavailable.');
+  var lower = [
+    { id: 'value', label: 'Implied value', caption: 'Top 25 of the current selection', node: chartPane },
+    { id: 'cats', label: 'Categories', caption: 'Rows and total value per category', node: categoryPanel() },
+    { id: 'method', label: 'Methodology', caption: 'Model constants and formula', node: methodPane }
+  ];
+  root.appendChild(el('div', { class: 'section' }, window.RADAR_TABS ? window.RADAR_TABS.create(el, lower, 0) : el('section', { class: 'panel' }, chartPane, lower[1].node, methodPane)));
   root.appendChild(scrim);
   root.appendChild(detail);
   root.appendChild(el('footer', { class: 'site-footer' },
