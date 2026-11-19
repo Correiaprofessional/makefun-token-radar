@@ -23,18 +23,14 @@
     implied: { label: 'Implied value', cmp: function (a, b) { return (b.implied_value_usd || 0) - (a.implied_value_usd || 0) || a.rank - b.rank; } }
   };
 
-  function fmtUsd(n) {
-    if (n === null || n === undefined || !isFinite(n)) return 'n/a';
-    var a = Math.abs(n);
-    if (a >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
-    if (a >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
-    if (a >= 1e3) return '$' + Math.round(n / 1e3) + 'K';
-    return '$' + Math.round(n);
+  var F = window.RADAR_FORMAT;
+  if (!F) {
+    root.textContent = 'The dashboard helpers (format.js) are missing.';
+    root.removeAttribute('aria-busy');
+    return;
   }
-  function fmtPct(n) {
-    if (n === null || n === undefined || !isFinite(n)) return 'n/a';
-    return (n > 0 ? '+' : '') + n.toFixed(2) + '%';
-  }
+  var fmtUsd = F.formatUsd;
+  var fmtPct = F.formatPercent;
   function pctClass(n) {
     return n === null || n === undefined ? 'num' : n < 0 ? 'num neg' : 'num pos';
   }
@@ -103,7 +99,7 @@
     if (shown.length === 0) {
       tbody.appendChild(el('tr', null, el('td', { colspan: '6', class: 'sub', text: 'No rows match this search.' })));
     }
-    countLine.textContent = 'Showing ' + shown.length + ' of ' + rows.length + ' rows';
+    countLine.textContent = 'Showing ' + shown.length + ' of ' + rows.length + ' ' + F.pluralise(rows.length, 'row');
   }
 
   function openDetail(slug) {
@@ -118,7 +114,7 @@
       ['7-day change', fmtPct(r.change_7d)],
       ['Implied value', fmtUsd(r.implied_value_usd)],
       ['Category', r.category || 'Uncategorised'],
-      ['Chain count', String(r.chains ? r.chains.length : 0)],
+      ['Chain count', F.describeChainCount(r.chains ? r.chains.length : 0)],
       ['Chains', r.chains && r.chains.length ? r.chains.join(', ') : 'n/a']
     ].forEach(function (p) { stats.appendChild(el('div', null, el('span', { text: p[0] }), el('b', { text: p[1] }))); });
     var steps = el('ol', { class: 'steps' });
@@ -187,6 +183,9 @@
   root.appendChild(table());
   root.appendChild(methodology());
   root.appendChild(detail);
+  root.appendChild(el('footer', { class: 'sub site-footer' },
+    el('p', { text: 'Snapshot source: ' + DATA.source + ', as of ' + DATA.as_of + '.' }),
+    el('p', { text: 'This board is a model\u2019s ranking, not investment advice.' })));
   renderRows();
   root.removeAttribute('aria-busy');
 })();
