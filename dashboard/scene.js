@@ -16,17 +16,19 @@
 
   var FRAG = [
     'precision mediump float;',
-    'uniform vec3 uEye; uniform vec3 uVoid; uniform float uFade; uniform float uTop; uniform float uHover;',
+    'uniform vec3 uEye; uniform float uFade; uniform float uTop; uniform float uHover;',
     'varying vec3 vP; varying vec3 vN; varying vec4 vC; varying float vId;',
     'void main() {',
     '  float d = distance(vP.xz, uEye.xz);',
     '  float fade = 1.0 - smoothstep(uFade * 0.45, uFade, d);',
-    '  if (dot(vN, vN) < 0.25) { gl_FragColor = vec4(vC.rgb, vC.a * fade); return; }',
+    '  float a = vC.a * fade;',
+    '  if (dot(vN, vN) < 0.25) { gl_FragColor = vec4(vC.rgb * a, a); return; }',
+    '  a = vC.a * (0.35 + 0.65 * fade);',
     '  float lit = 0.5 + 0.5 * clamp(dot(normalize(vN), normalize(vec3(0.4, 0.8, 0.5))), 0.0, 1.0);',
     '  float g = mix(0.5, 1.0, clamp(vP.y / uTop, 0.0, 1.0));',
     '  vec3 c = vC.rgb * lit * g + (vN.y > 0.5 ? vec3(0.14) : vec3(0.0));',
-    '  if (abs(vId - uHover) < 0.5) c = c * 1.35 + vec3(0.12);',
-    '  gl_FragColor = vec4(mix(uVoid, c, 0.35 + 0.65 * fade), vC.a);',
+    '  if (uHover > -0.5) c = abs(vId - uHover) < 0.5 ? mix(c, vec3(1.0), 0.2) : c * 0.8;',
+    '  gl_FragColor = vec4(c * a, a);',
     '}'
   ].join('\n');
 
@@ -71,8 +73,8 @@
   function create(canvas, rows, onPick) {
     var gl = null;
     try {
-      gl = canvas.getContext('webgl', { antialias: true, alpha: false, preserveDrawingBuffer: true }) ||
-        canvas.getContext('experimental-webgl', { antialias: true, alpha: false, preserveDrawingBuffer: true });
+      gl = canvas.getContext('webgl', { antialias: true, alpha: true, preserveDrawingBuffer: true }) ||
+        canvas.getContext('experimental-webgl', { antialias: true, alpha: true, preserveDrawingBuffer: true });
     } catch (e) { gl = null; }
     if (!gl) return null;
 
@@ -94,7 +96,7 @@
     gl.useProgram(prog);
     var buf = gl.createBuffer();
     var U = {};
-    ['uVP', 'uEye', 'uVoid', 'uFade', 'uTop', 'uHover'].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
+    ['uVP', 'uEye', 'uFade', 'uTop', 'uHover'].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     var attrs = [['aPos', 3, 0], ['aNrm', 3, 3], ['aCol', 4, 6], ['aId', 1, 10]];
     attrs.forEach(function (a) {
@@ -104,13 +106,11 @@
     });
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    var voidRgb = hex('#05090a', 1);
-    gl.uniform3f(U.uVoid, voidRgb[0], voidRgb[1], voidRgb[2]);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var F = window.RADAR_FORMAT;
-    var cam = { yaw: 30 * DEG, pitch: 40 * DEG, zoom: 1, fit: 64 };
+    var cam = { yaw: 30 * DEG, pitch: 40 * DEG, fit: 64 };
     var towers = [], count = 0, top = 1, hover = -1, vp = null, raf = 0, drag = null, dead = false;
     var width = 1, height = 1, dpr = 1;
 
@@ -137,7 +137,7 @@
         var tone = F.toneOf(r);
         var col = hex(F.TONES[tone], tone === 5 ? 0.8 : 1);
         var cx = (i - (n - 1) / 2), h = Math.max(0.25, Math.cbrt(Math.max(r.implied_value_usd, 0) / maxV) * top);
-        towers.push({ slug: r.slug, x: cx, h: h });
+        towers.push({ slug: r.slug, x: cx, h: h, rank: r.rank, name: r.name, value: r.implied_value_usd, category: r.category || 'Uncategorised' });
         var x0 = cx - hw, x1 = cx + hw, z0 = -hw, z1 = hw;
         quad([x0, 0, z1], [x1, 0, z1], [x1, h, z1], [x0, h, z1], 0, 0, 1, col, i);
         quad([x1, 0, z0], [x0, 0, z0], [x0, h, z0], [x1, h, z0], 0, 0, -1, col, i);
@@ -153,11 +153,12 @@
       var aspect = width / height, half = Math.max(n, 8) / 2 + 2;
       cam.fit = Math.max(half / (Math.tan(20 * DEG) * aspect) * 0.92, top * 3.4, 22);
       hover = -1;
+      if (tip) hideTip();
     }
 
     function matrices(time) {
       var yaw = cam.yaw + (reduce || drag ? 0 : Math.sin(time / 6000 * 2 * Math.PI) * 1.2 * DEG);
-      var d = cam.fit * cam.zoom, cp = Math.cos(cam.pitch);
+      var d = cam.fit, cp = Math.cos(cam.pitch);
       var t = [0, top * 0.3, 0];
       var e = [t[0] + d * cp * Math.sin(yaw), t[1] + d * Math.sin(cam.pitch), t[2] + d * cp * Math.cos(yaw)];
       var proj = perspective(40 * DEG, width / height, 0.5, d * 6);
@@ -169,7 +170,7 @@
       var m = matrices(time || 0);
       vp = m.vp;
       gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.clearColor(voidRgb[0], voidRgb[1], voidRgb[2], 1);
+      gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.uniformMatrix4fv(U.uVP, false, vp);
       gl.uniform3f(U.uEye, m.eye[0], m.eye[1], m.eye[2]);
@@ -185,15 +186,21 @@
     }
     function redraw() { if (reduce || !raf) draw(0); }
 
-    // Nearest tower top within 20 CSS pixels of the pointer, or -1.
+    function project(x, y) {
+      var p = transform(vp, x, y, 0);
+      return p[2] > 0 ? [(p[0] / p[2] * 0.5 + 0.5) * width, (1 - (p[1] / p[2] * 0.5 + 0.5)) * height] : null;
+    }
+
+    // Nearest tower within 14 CSS pixels of the pointer, measured to its base-to-top line on screen, or -1.
     function pick(px, py) {
       if (!vp) return -1;
-      var best = -1, bd = 20;
+      var best = -1, bd = 14;
       for (var i = 0; i < towers.length; i++) {
-        var p = transform(vp, towers[i].x, towers[i].h, 0);
-        if (p[2] <= 0) continue;
-        var sx = (p[0] / p[2] * 0.5 + 0.5) * width, sy = (1 - (p[1] / p[2] * 0.5 + 0.5)) * height;
-        var dd = Math.hypot(sx - px, sy - py);
+        var a = project(towers[i].x, 0), b = project(towers[i].x, towers[i].h);
+        if (!a || !b) continue;
+        var vx = b[0] - a[0], vy = b[1] - a[1], l2 = vx * vx + vy * vy;
+        var t = l2 ? Math.min(1, Math.max(0, ((px - a[0]) * vx + (py - a[1]) * vy) / l2)) : 0;
+        var dd = Math.hypot(a[0] + vx * t - px, a[1] + vy * t - py);
         if (dd < bd) { bd = dd; best = i; }
       }
       return best;
@@ -204,10 +211,43 @@
       return [e.clientX - r.left, e.clientY - r.top];
     }
 
+    // Tooltip: a plain DOM node moved with translate3d; 8px from the pointer, flipped near the viewport edge.
+    var tip = document.createElement('div'), tipIn = document.createElement('div');
+    tip.className = 'tip';
+    tip.setAttribute('aria-hidden', 'true');
+    tip.appendChild(tipIn);
+    document.body.appendChild(tip);
+    function showTip(i, cx, cy) {
+      var t = towers[i];
+      if (!t) return;
+      if (tip.dataset.slug !== t.slug) {
+        tip.dataset.slug = t.slug;
+        tipIn.textContent = '';
+        [['b', '#' + String(t.rank).padStart(3, '0') + '  ' + t.name], ['span', F.formatUsd(t.value) + ' \u00B7 ' + t.category]].forEach(function (p) {
+          var n = document.createElement(p[0]);
+          n.textContent = p[1];
+          tipIn.appendChild(n);
+        });
+      }
+      var w = tip.offsetWidth, h = tip.offsetHeight;
+      var x = cx + 8, y = cy + 8;
+      if (x + w > window.innerWidth - 8) x = cx - 8 - w;
+      if (y + h > window.innerHeight - 8) y = cy - 8 - h;
+      tip.style.transform = 'translate3d(' + Math.max(x, 8) + 'px,' + Math.max(y, 8) + 'px,0)';
+      tip.classList.add('on');
+    }
+    function hideTip() { tip.classList.remove('on'); delete tip.dataset.slug; }
+    function setHover(i, cx, cy) {
+      if (i !== hover) { hover = i; canvas.style.cursor = i >= 0 ? 'pointer' : 'grab'; }
+      if (i >= 0) showTip(i, cx, cy); else hideTip();
+      redraw();
+    }
+
     function onDown(e) {
       drag = { x: e.clientX, y: e.clientY, moved: 0 };
       canvas.setPointerCapture(e.pointerId);
       canvas.style.cursor = 'grabbing';
+      setHover(-1);
     }
     function onMove(e) {
       if (drag) {
@@ -216,11 +256,11 @@
         drag.x = e.clientX; drag.y = e.clientY;
         cam.yaw -= dx * 0.006;
         cam.pitch = Math.min(70 * DEG, Math.max(5 * DEG, cam.pitch + dy * 0.005));
+        redraw();
       } else {
-        var p = local(e), i = pick(p[0], p[1]);
-        if (i !== hover) { hover = i; canvas.style.cursor = i >= 0 ? 'pointer' : 'grab'; }
+        var p = local(e);
+        setHover(pick(p[0], p[1]), e.clientX, e.clientY);
       }
-      redraw();
     }
     function onUp(e) {
       if (!drag) return;
@@ -233,12 +273,21 @@
       }
       redraw();
     }
-    function onLeave() { if (!drag && hover !== -1) { hover = -1; canvas.style.cursor = 'grab'; redraw(); } }
-    function onWheel(e) {
-      e.preventDefault();
-      cam.zoom = Math.min(1.6, Math.max(0.3, cam.zoom * Math.exp(e.deltaY * 0.0012)));
-      redraw();
+    function onLeave() { if (!drag) setHover(-1); }
+
+    // Keyboard parity: arrows walk the towers, Enter opens the labelled one.
+    function focusTower(i) {
+      i = Math.min(towers.length - 1, Math.max(0, i));
+      var p = project(towers[i].x, towers[i].h), r = canvas.getBoundingClientRect();
+      if (p) setHover(i, r.left + p[0], r.top + p[1]);
     }
+    function onKey(e) {
+      if (!towers.length) return;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); focusTower((hover < 0 ? 0 : hover) + (e.key === 'ArrowRight' ? 1 : -1) * (hover < 0 ? 0 : 1)); }
+      else if (e.key === 'Enter' && hover >= 0 && onPick) { e.preventDefault(); onPick(towers[hover].slug); }
+      else if (e.key === 'Escape') setHover(-1);
+    }
+    function onFocus() { if (hover < 0 && towers.length && canvas.matches(':focus-visible')) focusTower(0); }
 
     function resize() {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -253,12 +302,10 @@
     var towersRows = rows || [];
     canvas.style.cursor = 'grab';
     canvas.style.touchAction = 'none';
-    canvas.addEventListener('pointerdown', onDown);
-    canvas.addEventListener('pointermove', onMove);
-    canvas.addEventListener('pointerup', onUp);
-    canvas.addEventListener('pointercancel', onUp);
-    canvas.addEventListener('pointerleave', onLeave);
-    canvas.addEventListener('wheel', onWheel, { passive: false });
+    canvas.tabIndex = 0;
+    var events = [['pointerdown', onDown], ['pointermove', onMove], ['pointerup', onUp], ['pointercancel', onUp], ['pointerleave', onLeave],
+      ['keydown', onKey], ['focus', onFocus], ['blur', onLeave]];
+    events.forEach(function (p) { canvas.addEventListener(p[0], p[1]); });
     var ro = typeof ResizeObserver === 'function' ? new ResizeObserver(resize) : null;
     if (ro) ro.observe(canvas); else window.addEventListener('resize', resize);
     width = Math.max(canvas.clientWidth, 1); height = Math.max(canvas.clientHeight, 1);
@@ -278,10 +325,8 @@
         if (raf) cancelAnimationFrame(raf);
         raf = 0;
         if (ro) ro.disconnect(); else window.removeEventListener('resize', resize);
-        ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) {
-          canvas.removeEventListener(n, { pointerdown: onDown, pointermove: onMove, pointerup: onUp, pointercancel: onUp, pointerleave: onLeave }[n]);
-        });
-        canvas.removeEventListener('wheel', onWheel);
+        events.forEach(function (p) { canvas.removeEventListener(p[0], p[1]); });
+        tip.remove();
         gl.deleteBuffer(buf);
         gl.deleteProgram(prog);
         gl.deleteShader(vs);

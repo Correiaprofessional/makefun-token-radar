@@ -21,7 +21,8 @@
   var M = DATA.model;
   var fmtUsd = F.formatUsd;
   var fmtPct = F.formatPercent;
-  var state = { q: '', category: 'all', sort: 'rank', selected: null };
+  var state = { q: '', category: 'all', sort: 'rank', page: 0, selected: null };
+  var PAGE = 50;
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // SVG namespace read back from the HTML parser, so no URL literal is needed.
@@ -92,8 +93,8 @@
   rows.forEach(function (r) { if (r.implied_value_usd > maxImplied) maxImplied = r.implied_value_usd; });
 
   // Controls
-  var searchInput = el('input', { id: 'q', type: 'search', placeholder: 'Search name or slug', autocomplete: 'off', 'aria-label': 'Search name or slug', oninput: function (e) { state.q = e.target.value; renderRows(); } });
-  var categorySelect = el('select', { id: 'category', 'aria-label': 'Category', onchange: function (e) { state.category = e.target.value; renderRows(); } },
+  var searchInput = el('input', { id: 'q', type: 'search', placeholder: 'Search name or slug', autocomplete: 'off', 'aria-label': 'Search name or slug', oninput: function (e) { state.q = e.target.value; reset(); } });
+  var categorySelect = el('select', { id: 'category', 'aria-label': 'Category', onchange: function (e) { state.category = e.target.value; reset(); } },
     el('option', { value: 'all', text: 'All categories' }));
   categories.forEach(function (c) { categorySelect.appendChild(el('option', { value: c, text: c })); });
   var seg = el('div', { class: 'seg', role: 'radiogroup', 'aria-label': 'Sort by' }, el('span', { class: 'pill' }));
@@ -102,6 +103,7 @@
       type: 'button', role: 'radio', 'data-sort': k, 'aria-checked': k === state.sort ? 'true' : 'false', text: SORTS[k].label,
       onclick: function () {
         state.sort = k;
+        state.page = 0;
         seg.style.setProperty('--at', String(i));
         [].forEach.call(seg.querySelectorAll('button'), function (b) { b.setAttribute('aria-checked', b.getAttribute('data-sort') === k ? 'true' : 'false'); });
         renderRows();
@@ -116,12 +118,46 @@
 
   // Board table
   var tbody = el('tbody');
-  var boardTable = el('table', { class: 'first' },
+  var tableWrap = el('div', { class: 'table-wrap' });
+  var boardTable = el('table', null,
     el('thead', null, el('tr', null,
       el('th', { scope: 'col', text: '#' }), el('th', { scope: 'col', text: 'Protocol' }),
       el('th', { scope: 'col', class: 'col-hide', text: 'Category' }), el('th', { scope: 'col', class: 'r', text: 'TVL' }),
       el('th', { scope: 'col', class: 'r', text: '7-day' }), el('th', { scope: 'col', class: 'r', text: 'Implied value' }))),
     tbody);
+  tableWrap.appendChild(boardTable);
+  var pager = el('nav', { class: 'pager', 'aria-label': 'Board pages' });
+  var enterTimer = 0;
+  // Restarts the row entrance animation (24ms stagger, capped by --k).
+  function enter() {
+    if (reduce) return;
+    clearTimeout(enterTimer);
+    boardTable.classList.remove('first');
+    void boardTable.offsetWidth;
+    boardTable.classList.add('first');
+    enterTimer = setTimeout(function () { boardTable.classList.remove('first'); }, 1500);
+  }
+  function reset() { state.page = 0; renderRows(); }
+  function goPage(p) {
+    if (p === state.page) return;
+    state.page = p;
+    var top = tableWrap.getBoundingClientRect().top;
+    if (top < 130) tableWrap.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+    if (reduce) { renderRows(); return; }
+    tbody.classList.add('out');
+    setTimeout(function () { renderRows(); tbody.classList.remove('out'); enter(); }, 90);
+  }
+  function drawPager(pages) {
+    pager.textContent = '';
+    pager.hidden = pages < 2;
+    function btn(label, p, off, cur) {
+      pager.appendChild(el('button', { type: 'button', text: label, disabled: off ? '' : null, 'aria-current': cur ? 'page' : null,
+        'aria-label': cur || /^\d+$/.test(label) ? 'Page ' + label : label === 'Prev' ? 'Previous page' : 'Next page', onclick: function () { goPage(p); } }));
+    }
+    btn('Prev', state.page - 1, state.page === 0);
+    for (var i = 0; i < pages; i++) btn(String(i + 1), i, false, i === state.page);
+    btn('Next', state.page + 1, state.page === pages - 1);
+  }
 
   // Detail drawer
   var detail = el('aside', { class: 'detail', id: 'detail', 'aria-label': 'Protocol detail', 'aria-hidden': 'true' });
@@ -141,8 +177,11 @@
 
   function renderRows() {
     var shown = rows.filter(matches).sort(SORTS[state.sort].cmp);
+    var pages = Math.max(1, Math.ceil(shown.length / PAGE));
+    state.page = Math.min(state.page, pages - 1);
+    var start = state.page * PAGE, view = shown.slice(start, start + PAGE);
     tbody.textContent = '';
-    shown.forEach(function (r, i) {
+    view.forEach(function (r, i) {
       var w = Math.max(3, Math.cbrt(r.implied_value_usd / maxImplied) * 100);
       var tr = el('tr', { tabindex: '0', 'data-slug': r.slug, 'data-selected': state.selected === r.slug ? 'true' : 'false', 'aria-label': 'Open details for ' + r.name, style: '--k:' + Math.min(i, 11) },
         el('td', { class: 'num', text: pad3(r.rank) }),
@@ -161,9 +200,11 @@
     if (shown.length === 0) {
       tbody.appendChild(el('tr', { class: 'empty' }, el('td', { colspan: '6', text: 'No rows match this search.' })));
     }
-    countLine.textContent = 'Showing ' + shown.length + ' of ' + rows.length + ' ' + F.pluralise(rows.length, 'row');
+    countLine.textContent = 'Showing ' + (shown.length ? (start + 1) + '\u2013' + (start + view.length) : '0') + ' of ' + shown.length + ' ' + F.pluralise(shown.length, 'row');
+    drawPager(pages);
     drawBars(shown);
     if (!scene && !sceneFailed) startScene();
+    // The skyline deliberately takes the whole filtered selection (it draws its head, sixty rows), not just this page.
     if (scene) scene.setRows(shown);
   }
 
@@ -211,15 +252,11 @@
 
   // 3D skyline panel
   var scene = null, sceneFailed = false;
-  var canvas = el('canvas', { width: '1080', height: '420', role: 'img', 'aria-label': 'Three-dimensional skyline of implied value: one tower per protocol row, height is the cube root of implied value, colour is category. Drag to orbit, scroll to zoom, click a tower to open its details.' });
+  var canvas = el('canvas', { width: '1080', height: '420', role: 'img', 'aria-label': 'Three-dimensional skyline of implied value: one tower per protocol row, height is the cube root of implied value, colour is category. Drag to orbit, click a tower to open its details.' });
   var sceneFoot = el('div', { class: 'scene-foot' },
     el.apply(null, ['ul', { class: 'legend', 'aria-label': 'Category colours' }].concat(F.TONE_NAMES.map(function (n, i) { return el('li', null, chip(n, i)); }))),
-    el('p', { class: 'micro', text: 'drag to orbit \u00B7 scroll to zoom \u00B7 click a tower' }));
-  var scenePanel = el('section', { class: 'panel scene-panel', 'aria-labelledby': 'scene-h' },
-    el('div', { class: 'eyebrow', text: 'Skyline' }),
-    el('h2', { id: 'scene-h', text: 'Implied value in three dimensions' }),
-    el('p', { class: 'sub', text: 'The first sixty rows of the current selection: tower height is the cube root of implied value, colour is category, red marks wrapped, staked or bridged products.' }),
-    canvas, sceneFoot);
+    el('p', { class: 'micro', text: 'drag to orbit \u00B7 click a tower' }));
+  var scenePanel = el('section', { class: 'scene-panel', 'aria-label': 'Skyline' }, canvas, sceneFoot);
 
   function sceneFallback() {
     sceneFailed = true;
@@ -287,33 +324,6 @@
       el('table', null, el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Category' }), el('th', { scope: 'col', class: 'r', text: 'Rows' }), el('th', { scope: 'col', class: 'r', text: 'Total implied' }))), body));
   }
 
-  function methodology() {
-    var items = [
-      ['base_multiple', M.base_multiple, 'implied value starts at TVL times this'],
-      ['growth_weight', M.growth_weight, 'share of the capped 7-day change added to the value'],
-      ['growth_floor / growth_cap', M.growth_floor + '% / ' + M.growth_cap + '%', 'the 7-day change is clamped to this range'],
-      ['maturity_floor', M.maturity_floor, 'maturity multiplier for a brand-new protocol'],
-      ['maturity_range', M.maturity_range, 'added to the floor as age reaches maturity_days'],
-      ['maturity_days', M.maturity_days, 'age in days at which maturity reaches 1'],
-      ['unknown_age_days', M.unknown_age_days, 'age assumed when listed_at is unknown'],
-      ['fee_capture_multiple', M.fee_capture_multiple, 'derivatives, options, prediction markets, chains, launchpads, DEXs'],
-      ['pass_through_multiple', M.pass_through_multiple, 'staking, restaking, allocators, wrappers, bridges: TVL is custody'],
-      ['chain_step', M.chain_step, 'credit per extra chain'],
-      ['chain_cap', M.chain_cap, 'maximum extra chains credited'],
-      ['wrapped_staked_bridged_penalty', M.wrapped_staked_bridged_penalty, 'wrapped, staked or bridged products of a token that already trades are scaled by this instead of being excluded']
-    ];
-    var body = el('tbody');
-    items.forEach(function (i) {
-      body.appendChild(el('tr', null, el('td', null, i[0], el('small', { text: i[2] })), el('td', { text: String(i[1]) })));
-    });
-    var panel = section('Model ' + DATA.model_version, 'Methodology', null,
-      el('p', { class: 'formula', text: 'implied = max(1, round(tvl x base_multiple x growth x maturity x category x chains x wrapped_staked_bridged_penalty)); growth = 1 + clamp(change_7d) / 100 x growth_weight; maturity = floor + min(age, maturity_days) / maturity_days x range; chains = 1 + chain_step x min(chains - 1, chain_cap).' }));
-    panel.id = 'methodology';
-    panel.appendChild(el('table', { class: 'consts' }, body));
-    panel.appendChild(el('p', { class: 'sub model-note', text: 'Snapshot as of ' + DATA.as_of + ' (' + DATA.source + '). Figures come only from the snapshot; the implied value is a model output, not a price or a forecast.' }));
-    return panel;
-  }
-
   // Page assembly
   var bar = document.getElementById('bar');
   if (bar) {
@@ -334,9 +344,9 @@
     stats));
   root.appendChild(el('div', { class: 'section' }, scenePanel));
   root.appendChild(el('div', { class: 'controls' }, searchBox, categorySelect, seg, countLine));
-  root.appendChild(el('div', { class: 'panel board' }, el('div', { class: 'table-wrap' }, boardTable)));
+  root.appendChild(el('div', { class: 'panel board' }, tableWrap, pager));
   root.appendChild(el('div', { class: 'section' }, section('Chart', 'Implied value by rank', null, el('div', null, barSub, barMount))));
-  root.appendChild(el('div', { class: 'section split' }, categoryPanel(), methodology()));
+  root.appendChild(el('div', { class: 'section split' }, categoryPanel(), window.RADAR_METHOD ? window.RADAR_METHOD(DATA, el, section) : null));
   root.appendChild(scrim);
   root.appendChild(detail);
   root.appendChild(el('footer', { class: 'site-footer' },
@@ -345,5 +355,5 @@
   renderRows();
   root.removeAttribute('aria-busy');
   statNodes.forEach(function (s) { countUp(s.node, s.to, s.fmt); });
-  setTimeout(function () { boardTable.classList.remove('first'); }, 1500);
+  enter();
 })();
