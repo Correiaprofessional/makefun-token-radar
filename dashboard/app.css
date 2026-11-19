@@ -74,11 +74,7 @@ main:focus { outline: none; }
 .brand .w1 { color: var(--ink-2); }
 .brand .sep { color: var(--accent); opacity: .85; }
 .brand .w2 { color: var(--ink); letter-spacing: .01em; }
-.dot { position: relative; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
-.dot::after {
-  content: ""; position: absolute; inset: 0; border-radius: 50%; border: 1px solid var(--accent);
-  animation: pulse 2.4s ease-in-out infinite;
-}
+
 .bar-meta { display: flex; gap: 20px; font: .72rem var(--font-num); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); min-width: 0; }
 .bar-meta span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -247,7 +243,7 @@ th.r, td.r { text-align: right; }
 @media (prefers-reduced-motion: reduce) {
   .hero > *, .first tbody tr { animation: fade var(--t-slow) var(--ease-soft) backwards; animation-delay: 0s; }
   .first .mbar i { animation: none; }
-  .dot::after { animation: none; opacity: 0; }
+  .tab-stage { transition: none; }
   .brand .logo .blip { animation: none; }
   .brand:hover .logo { transform: none; }
   .detail { transform: none; }
@@ -265,8 +261,8 @@ th.r, td.r { text-align: right; }
 .tab:hover, .tab[aria-selected="true"] { color: var(--ink); }
 .tab-line { position: absolute; left: 0; bottom: -1px; height: 2px; background: var(--accent); transition: transform 250ms var(--ease-soft), width 250ms var(--ease-soft); pointer-events: none; }
 .tab-caption { margin: 0; font: .72rem var(--font-num); color: var(--muted); }
-.tab-stage { display: grid; padding: 24px; min-height: 380px; }
-.tab-pane { grid-area: 1 / 1; min-width: 0; outline-offset: 4px; }
+.tab-stage { position: relative; padding: 24px; min-height: 120px; overflow: hidden; transition: height 220ms var(--ease-soft); }
+.tab-pane { position: absolute; top: 24px; left: 24px; right: 24px; min-width: 0; outline-offset: 4px; }
 .tab-pane.off { visibility: hidden; opacity: 0; }
 .tab-pane.out { opacity: 0; transition: opacity 90ms var(--ease-in); }
 .tab-pane.in { animation: pane-in 220ms var(--ease-out); }

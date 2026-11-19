@@ -292,6 +292,7 @@
       chart.appendChild(svg('text', { class: 'bar-value', x: String(labelW + barW + 8), y: String(y + 15), text: fmtUsd(r.implied_value_usd) }));
     });
     barMount.appendChild(chart);
+    if (tabsCard && tabsCard.fit) tabsCard.fit();
   }
 
   function section(eyebrow, title, sub, extra) {
@@ -372,7 +373,9 @@
     { id: 'cats', label: 'Categories', caption: 'Rows and total value per category', node: categoryPanel() },
     { id: 'method', label: 'Methodology', caption: 'Model constants and formula', node: methodPane }
   ];
-  root.appendChild(el('div', { class: 'section' }, window.RADAR_TABS ? window.RADAR_TABS.create(el, lower, 0) : el('section', { class: 'panel' }, chartPane, lower[1].node, methodPane)));
+  // The tabbed card owns its own height, so the chart tells it to re-fit after every redraw.
+  var tabsCard = window.RADAR_TABS ? window.RADAR_TABS.create(el, lower, 0) : null;
+  root.appendChild(el('div', { class: 'section' }, tabsCard || el('section', { class: 'panel' }, chartPane, lower[1].node, methodPane)));
   root.appendChild(scrim);
   root.appendChild(detail);
   root.appendChild(el('footer', { class: 'site-footer' },

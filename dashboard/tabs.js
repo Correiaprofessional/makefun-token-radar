@@ -36,6 +36,14 @@
       line.style.transform = 'translateX(' + b.offsetLeft + 'px)';
     }
 
+    // The card is only as tall as the open pane, so the page never carries the height of a pane the
+    // reader cannot see; the height itself eases so a switch does not jump.
+    function fit() {
+      var pane = panes[active];
+      if (!pane) return;
+      stage.style.height = (pane.offsetHeight + 48) + 'px';
+    }
+
     function show(i, animate) {
       panes.forEach(function (p, k) {
         var on = k === i;
@@ -44,6 +52,7 @@
         if (on) p.removeAttribute('inert'); else p.setAttribute('inert', '');
       });
       if (animate) { void panes[i].offsetWidth; panes[i].classList.add('in'); }
+      fit();
     }
 
     function select(i, focus) {
@@ -67,7 +76,9 @@
     var card = el('section', { class: 'panel tabs', 'aria-label': 'Analysis' }, head, stage);
     show(active, false);
     select(active, false);
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(place);
+    card.fit = fit;
+    window.addEventListener('resize', function () { place(); fit(); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { place(); fit(); });
     return card;
   }
 
