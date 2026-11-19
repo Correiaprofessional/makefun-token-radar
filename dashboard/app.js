@@ -218,7 +218,7 @@
   var scenePanel = el('section', { class: 'panel scene-panel', 'aria-labelledby': 'scene-h' },
     el('div', { class: 'eyebrow', text: 'Skyline' }),
     el('h2', { id: 'scene-h', text: 'Implied value in three dimensions' }),
-    el('p', { class: 'sub', text: 'Tower height is the cube root of implied value; colour is category, red marks wrapped, staked or bridged products.' }),
+    el('p', { class: 'sub', text: 'The first sixty rows of the current selection: tower height is the cube root of implied value, colour is category, red marks wrapped, staked or bridged products.' }),
     canvas, sceneFoot);
 
   function sceneFallback() {

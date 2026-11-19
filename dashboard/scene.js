@@ -115,7 +115,11 @@
     var width = 1, height = 1, dpr = 1;
 
     var vertices;
+    // Only the head of the board becomes a skyline: past sixty towers a bar is thinner than a pixel,
+    // so the picture stops reading as towers. The table below still carries every row.
+    var SKYLINE_ROWS = 60;
     function bake(list) {
+      list = list.slice(0, SKYLINE_ROWS);
       var n = list.length, maxV = 1;
       list.forEach(function (r) { if (r.implied_value_usd > maxV) maxV = r.implied_value_usd; });
       top = Math.min(30, Math.max(8, n * 0.5 + 6));
@@ -128,7 +132,7 @@
       for (var x = -Math.ceil(gx / 4) * 4; x <= gx; x += 4) quad([x - lw, -0.02, -gz], [x + lw, -0.02, -gz], [x + lw, -0.02, gz], [x - lw, -0.02, gz], 0, 0, 0, x === 0 ? axis : grid, -1);
       for (var z = -gz; z <= gz; z += 4) quad([-gx, -0.02, z - lw], [gx, -0.02, z - lw], [gx, -0.02, z + lw], [-gx, -0.02, z + lw], 0, 0, 0, z === 0 ? axis : grid, -1);
       towers = [];
-      var hw = 0.275;
+      var hw = 0.36;
       list.forEach(function (r, i) {
         var tone = F.toneOf(r);
         var col = hex(F.TONES[tone], tone === 5 ? 0.8 : 1);
@@ -147,7 +151,7 @@
       gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
       // Distance that fits the whole row across the canvas, or the tallest tower for short rows.
       var aspect = width / height, half = Math.max(n, 8) / 2 + 2;
-      cam.fit = Math.max(half / (Math.tan(20 * DEG) * aspect) * 0.92, top * 2.4, 22);
+      cam.fit = Math.max(half / (Math.tan(20 * DEG) * aspect) * 0.92, top * 3.4, 22);
       hover = -1;
     }
 
