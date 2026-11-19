@@ -126,6 +126,11 @@ tbody tr[data-selected="true"] { background: color-mix(in srgb, var(--accent) 8%
 .steps { margin: 0; padding-left: var(--step-5); display: grid; gap: var(--step-3); }
 .steps li { padding-left: var(--step-1); }
 .steps b { display: block; font-weight: 500; }
+dl.equation { margin: 0; }
+dl.equation dt, dl.equation dd { margin: 0; }
+dl.equation > div { flex-wrap: wrap; }
+input[type="search"] { appearance: none; }
+tbody tr:focus-visible { outline-offset: -2px; }
 .cost { color: var(--muted); font-size: 12px; font-family: var(--font-num); }
 
 @media (max-width: 900px) {
