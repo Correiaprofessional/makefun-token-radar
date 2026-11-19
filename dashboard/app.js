@@ -63,6 +63,7 @@
         var v = attrs[k];
         if (v === null || v === undefined) return;
         if (k === 'class') node.setAttribute('class', v);
+        else if (k === 'text') node.textContent = v;
         else if (k.slice(0, 2) === 'on') node.addEventListener(k.slice(2), v);
         else node.setAttribute(k, v);
       });
@@ -120,6 +121,7 @@
       tbody.appendChild(el('tr', null, el('td', { colspan: '6', class: 'sub', text: 'No rows match this search.' })));
     }
     countLine.textContent = 'Showing ' + shown.length + ' of ' + rows.length + ' ' + F.pluralise(rows.length, 'row');
+    drawBars(shown);
   }
 
   function openDetail(slug) {
@@ -196,24 +198,40 @@
     return m;
   }
 
+  var BAR_ROWS = 25;
+
+  var barSub = el('p', { class: 'sub' });
+  var barMount = el('div');
+
   function valueBars() {
-    var max = maxImplied();
-    var rowH = 12, gap = 4, pad = 12, labelW = 250, barMax = 640, valueW = 120;
-    var h = pad * 2 + rows.length * (rowH + gap);
-    var frame = el('div', { class: 'panel value-bars' },
+    return el('div', { class: 'panel value-bars' },
       el('h2', { text: 'Implied value by rank' }),
-      el('p', { class: 'sub', text: 'One horizontal bar per row, width relative to rank 1 (the board\u2019s top implied value of ' + fmtUsd(max) + ').' }));
-    var svg = svg('svg', { width: String(pad + labelW + barMax + valueW + pad), height: String(h) });
-    rows.forEach(function (r, i) {
+      barSub,
+      barMount);
+  }
+
+  function drawBars(shown) {
+    var top = shown.slice(0, BAR_ROWS);
+    barMount.textContent = '';
+    if (top.length === 0) {
+      barSub.textContent = 'No rows to chart.';
+      return;
+    }
+    var max = 1;
+    top.forEach(function (r) { if (r.implied_value_usd > max) max = r.implied_value_usd; });
+    var rowH = 22, gap = 8, pad = 12, labelW = 250, barMax = 620, valueW = 110;
+    var h = pad * 2 + top.length * (rowH + gap);
+    barSub.textContent = 'The first ' + top.length + ' rows of the current selection, one horizontal bar each, width relative to the largest (' + fmtUsd(max) + ').';
+    var chart = svg('svg', { width: String(pad + labelW + barMax + valueW + pad), height: String(h), role: 'img', 'aria-label': 'Implied value by rank for the rows shown' });
+    top.forEach(function (r, i) {
       var y = pad + i * (rowH + gap);
       var barW = (r.implied_value_usd / max) * barMax;
-      var name = r.name.length > 42 ? r.name.slice(0, 40) + '\u2026' : r.name;
-      svg.appendChild(svg('text', { class: 'bar-label', x: '0', y: String(y + 8), text: (i + 1) + '  ' + name }));
-      svg.appendChild(svg('rect', { class: 'bar', x: String(labelW), y: String(y), width: String(Math.max(barW, 1)), height: String(rowH) }));
-      svg.appendChild(svg('text', { class: 'bar-value', x: String(labelW + barW + 8), y: String(y + 8), text: fmtUsd(r.implied_value_usd) }));
+      var name = r.name.length > 40 ? r.name.slice(0, 38) + '\u2026' : r.name;
+      chart.appendChild(svg('text', { class: 'bar-label', x: '0', y: String(y + 15), text: r.rank + '  ' + name }));
+      chart.appendChild(svg('rect', { class: 'vbar', x: String(labelW), y: String(y), width: String(Math.max(barW, 1)), height: String(rowH) }));
+      chart.appendChild(svg('text', { class: 'bar-value', x: String(labelW + barW + 8), y: String(y + 15), text: fmtUsd(r.implied_value_usd) }));
     });
-    frame.appendChild(svg);
-    return frame;
+    barMount.appendChild(chart);
   }
 
   function categoryPanel() {

@@ -85,7 +85,13 @@ export const MODEL: ModelConstants = {
   pass_through_multiple: 0.6,
   chain_step: 0.05,
   chain_cap: 6,
-  wrapped_staked_bridged_penalty: 0.5,
+  /** Penalty for wrapped, staked or bridged products of a token that already trades.
+   *  These are not realistic token-launch subjects (Bridge, Canonical Bridge,
+   *  Liquid Staking, Liquid Restaking, Restaking, Stablecoin Wrapper categories,
+   *  or names containing wrapped, staked or staking). The penalty is a multiplier
+   *  below 1 that demotes them while the max(1, ...) floor keeps every watchlist
+   *  slug on the board. */
+  wrapped_staked_bridged_penalty: 0.25,
 };
 
 /** Category keywords (lower case) of the fee-capture group: value accrues from trading or usage fees. */

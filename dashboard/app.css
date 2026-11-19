@@ -99,10 +99,11 @@ tbody tr[data-selected="true"] { background: color-mix(in srgb, var(--accent) 8%
 .status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 .value-bars { margin-top: var(--step-4); overflow-x: auto; }
-.value-bars svg { display: block; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); }
+.value-bars, .category-summary { padding: var(--step-4); }
+.value-bars svg { display: block; margin-top: var(--step-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); }
 .value-bars text.bar-label { fill: var(--muted); font: 11px var(--font-num); }
 .value-bars text.bar-value { fill: var(--ink); font: 11px var(--font-num); }
-.value-bars rect.bar { fill: var(--accent); }
+.value-bars rect.vbar { fill: var(--accent); }
 .category-summary { margin-top: var(--step-4); }
 
 .model { margin-top: var(--step-4); padding: var(--step-5); display: grid; gap: var(--step-3); }
