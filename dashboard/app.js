@@ -14,7 +14,14 @@
   }
   var rows = DATA.rows;
   var M = DATA.model;
-  var state = { q: '', category: 'all', selected: null };
+  var state = { q: '', category: 'all', sort: 'rank', selected: null };
+
+  var SORTS = {
+    rank: { label: 'Rank', cmp: function (a, b) { return a.rank - b.rank; } },
+    tvl: { label: 'TVL', cmp: function (a, b) { return (b.tvl_usd || 0) - (a.tvl_usd || 0) || a.rank - b.rank; } },
+    change: { label: '7-day change', cmp: function (a, b) { return (b.change_7d === null ? -Infinity : b.change_7d) - (a.change_7d === null ? -Infinity : a.change_7d) || a.rank - b.rank; } },
+    implied: { label: 'Implied value', cmp: function (a, b) { return (b.implied_value_usd || 0) - (a.implied_value_usd || 0) || a.rank - b.rank; } }
+  };
 
   function fmtUsd(n) {
     if (n === null || n === undefined || !isFinite(n)) return 'n/a';
@@ -70,12 +77,14 @@
   var categorySelect = el('select', { id: 'category', onchange: function (e) { state.category = e.target.value; renderRows(); } });
   categorySelect.appendChild(el('option', { value: 'all', text: 'All categories' }));
   categories.forEach(function (c) { categorySelect.appendChild(el('option', { value: c, text: c })); });
+  var sortSelect = el('select', { id: 'sort', onchange: function (e) { state.sort = e.target.value; renderRows(); } });
+  Object.keys(SORTS).forEach(function (k) { sortSelect.appendChild(el('option', { value: k, text: SORTS[k].label })); });
   var countLine = el('p', { class: 'count', role: 'status', 'aria-live': 'polite' });
   var tbody = el('tbody');
   var detail = el('aside', { class: 'detail', id: 'detail', hidden: '', 'aria-label': 'Protocol detail' });
 
   function renderRows() {
-    var shown = rows.filter(matches);
+    var shown = rows.filter(matches).sort(SORTS[state.sort].cmp);
     tbody.textContent = '';
     shown.forEach(function (r) {
       var tr = el('tr', { tabindex: '0', 'data-slug': r.slug, 'data-selected': state.selected === r.slug ? 'true' : 'false', 'aria-label': 'Open details for ' + r.name },
@@ -108,6 +117,8 @@
       ['TVL', fmtUsd(r.tvl_usd)],
       ['7-day change', fmtPct(r.change_7d)],
       ['Implied value', fmtUsd(r.implied_value_usd)],
+      ['Category', r.category || 'Uncategorised'],
+      ['Chain count', String(r.chains ? r.chains.length : 0)],
       ['Chains', r.chains && r.chains.length ? r.chains.join(', ') : 'n/a']
     ].forEach(function (p) { stats.appendChild(el('div', null, el('span', { text: p[0] }), el('b', { text: p[1] }))); });
     var steps = el('ol', { class: 'steps' });
@@ -171,6 +182,7 @@
   root.appendChild(el('div', { class: 'controls' },
     el('div', { class: 'field' }, el('label', { for: 'q', text: 'Search' }), searchInput),
     el('div', { class: 'field' }, el('label', { for: 'category', text: 'Category' }), categorySelect),
+    el('div', { class: 'field' }, el('label', { for: 'sort', text: 'Sort by' }), sortSelect),
     countLine));
   root.appendChild(table());
   root.appendChild(methodology());

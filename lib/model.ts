@@ -252,7 +252,17 @@ export interface BoardSummary {
   live_size: number;
 }
 
-/** The protocols the board ranks, strongest first, with ranks 1..n. */
+/**
+ * Ranking order, a total order so the board is deterministic: implied value descending, then TVL
+ * descending (the larger protocol wins a tie), then slug ascending.
+ */
+function compareScored(a: { implied: number; p: SnapshotProtocol }, b: { implied: number; p: SnapshotProtocol }): number {
+  if (b.implied !== a.implied) return b.implied - a.implied;
+  if (b.p.tvl_usd !== a.p.tvl_usd) return b.p.tvl_usd - a.p.tvl_usd;
+  return a.p.slug < b.p.slug ? -1 : a.p.slug > b.p.slug ? 1 : 0;
+}
+
+/** The protocols the board ranks, strongest first (ties broken by TVL, then slug), with ranks 1..n. */
 export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL): BoardRow[] {
   const index = bySlug(snapshot.protocols);
   const chosen = new Map<string, SnapshotProtocol>();
@@ -274,7 +284,7 @@ export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL): B
     const { implied, growthPct, growthMult, maturityMult, categoryMult, chainMult, age } = impliedValue(p, snapshot.as_of, model);
     return { p, implied, growthPct, growthMult, maturityMult, categoryMult, chainMult, age };
   });
-  scored.sort((a, b) => b.implied - a.implied || (a.p.slug < b.p.slug ? -1 : a.p.slug > b.p.slug ? 1 : 0));
+  scored.sort(compareScored);
   return scored.map((s, i) => ({
     rank: i + 1,
     slug: s.p.slug,
