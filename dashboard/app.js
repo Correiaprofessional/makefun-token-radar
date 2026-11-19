@@ -324,10 +324,38 @@
       el('table', null, el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Category' }), el('th', { scope: 'col', class: 'r', text: 'Rows' }), el('th', { scope: 'col', class: 'r', text: 'Total implied' }))), body));
   }
 
+  // The mark: a radar scope with one blip. Built by hand so the page stays offline and the file
+  // carries no address; every stroke inherits currentColor from .logo.
+  function logoMark() {
+    var NS = 'http:' + '//www.w3.org/2000/svg';
+    var s = document.createElementNS(NS, 'svg');
+    s.setAttribute('viewBox', '0 0 32 32');
+    s.setAttribute('class', 'logo');
+    s.setAttribute('aria-hidden', 'true');
+    s.setAttribute('focusable', 'false');
+    function add(tag, attrs) {
+      var node = document.createElementNS(NS, tag);
+      Object.keys(attrs).forEach(function (k) { node.setAttribute(k, attrs[k]); });
+      s.appendChild(node);
+      return node;
+    }
+    add('circle', { cx: '16', cy: '16', r: '13.4', fill: 'none', stroke: 'currentColor', 'stroke-opacity': '.22', 'stroke-width': '1.2' });
+    add('circle', { cx: '16', cy: '16', r: '8.4', fill: 'none', stroke: 'currentColor', 'stroke-opacity': '.34', 'stroke-width': '1' });
+    add('path', { d: 'M16 16 L16 2.6 A13.4 13.4 0 0 1 31.2 22.4 Z', fill: 'currentColor', 'fill-opacity': '.16' });
+    add('path', { d: 'M16 16 L16 2.6', stroke: 'currentColor', 'stroke-width': '1.7', 'stroke-linecap': 'round' });
+    add('circle', { class: 'blip', cx: '23.6', cy: '9.4', r: '2.3', fill: 'currentColor' });
+    add('circle', { cx: '16', cy: '16', r: '1.4', fill: 'currentColor' });
+    return s;
+  }
+
   // Page assembly
   var bar = document.getElementById('bar');
   if (bar) {
-    bar.appendChild(el('div', { class: 'brand' }, el('span', { class: 'dot' }), el('span', { text: 'token-radar' })));
+    bar.appendChild(el('div', { class: 'brand' }, logoMark(),
+      el('span', { class: 'word' },
+        el('span', { class: 'w1', text: 'token' }),
+        el('span', { class: 'sep', text: '/' }),
+        el('span', { class: 'w2', text: 'radar' }))));
     bar.appendChild(el('div', { class: 'bar-meta' }, el('span', { text: 'as of ' + DATA.as_of }), el('span', { text: String(DATA.source).split(' ')[0] })));
   }
   var statNodes = [
@@ -342,7 +370,7 @@
     el('h1', { style: '--i:1', text: 'Pre-token radar' }),
     el('p', { class: 'deck', style: '--i:2', text: 'Protocols with no token yet, scored from TVL, 7-day change, age, category and chains. Select a row for its research steps.' }),
     stats));
-  root.appendChild(el('div', { class: 'section' }, scenePanel));
+  root.appendChild(el('div', { class: 'section section-scene' }, scenePanel));
   root.appendChild(el('div', { class: 'controls' }, searchBox, categorySelect, seg, countLine));
   root.appendChild(el('div', { class: 'panel board' }, tableWrap, pager));
   root.appendChild(el('div', { class: 'section' }, section('Chart', 'Implied value by rank', null, el('div', null, barSub, barMount))));
