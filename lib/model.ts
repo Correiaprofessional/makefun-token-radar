@@ -15,7 +15,13 @@
 //                (age_days unknown: UNKNOWN_AGE_DAYS)
 //   category   = FEE_CAPTURE_MULTIPLE | PASS_THROUGH_MULTIPLE | 1, by the category's group
 //   chains     = 1 + CHAIN_STEP x min(chain_count - 1, CHAIN_CAP)
-//   implied    = max(1, round(base x growthMult x maturity x category x chains))
+//   implied    = max(1, round(base x growthMult x maturity x category x chains x wrapped_staked_bridged_penalty))
+//   wrapped_staked_bridged_penalty is 1 unless the protocol is a wrapped, staked or bridged product of a
+//   token that already trades (Bridge, Canonical Bridge, Liquid Staking, Liquid Restaking, Restaking,
+//   Stablecoin Wrapper categories, or a name carrying wrapped, staked or staking), when it is the MODEL
+//   constant below. Those products are not realistic token-launch subjects, so they are demoted by this
+//   factor instead of being excluded. The floor below (1) keeps every implied value at least 1, so every
+//   watchlist slug still appears on the board.
 //
 // Why: BASE_MULTIPLE is the order of magnitude at which listed protocols' market value sits against TVL
 // in this snapshot (about a quarter of TVL at the median). Growth is capped because a seven-day TVL swing
@@ -63,6 +69,7 @@ export interface ModelConstants {
   pass_through_multiple: number;
   chain_step: number;
   chain_cap: number;
+  wrapped_staked_bridged_penalty: number;
 }
 
 export const MODEL: ModelConstants = {
@@ -78,6 +85,7 @@ export const MODEL: ModelConstants = {
   pass_through_multiple: 0.6,
   chain_step: 0.05,
   chain_cap: 6,
+  wrapped_staked_bridged_penalty: 0.5,
 };
 
 /** Category keywords (lower case) of the fee-capture group: value accrues from trading or usage fees. */
@@ -92,6 +100,19 @@ export function categoryGroup(category: string | null): 'fee-capture' | 'pass-th
   if (PASS_THROUGH_KEYWORDS.some((k) => c.includes(k))) return 'pass-through';
   if (FEE_CAPTURE_KEYWORDS.some((k) => c.includes(k))) return 'fee-capture';
   return 'standard';
+}
+
+/** Categories of wrapped, staked or bridged products of a token that already trades. */
+export const WRAPPED_STAKED_BRIDGED_CATEGORIES: string[] = ['Bridge', 'Canonical Bridge', 'Liquid Staking', 'Liquid Restaking', 'Restaking', 'Stablecoin Wrapper'];
+
+/** A name carrying wrapped, staked or staking in any case. */
+const WRAPPED_STAKED_STAKING = /wrapped|staked|staking/i;
+
+/** Whether a protocol is a wrapped, staked or bridged product of a token that already trades: its
+   category names one of those product types, or its name carries wrapped, staked or staking. */
+export function isWrappedStakedBridged(protocol: SnapshotProtocol): boolean {
+  if (protocol.category !== null && WRAPPED_STAKED_BRIDGED_CATEGORIES.indexOf(protocol.category) >= 0) return true;
+  return WRAPPED_STAKED_STAKING.test(protocol.name);
 }
 
 /** The model's version label: the dashboard names it and the rules quote it. */
@@ -211,7 +232,7 @@ export function ageDays(asOf: string, listedAt: string | null): number | null {
 }
 
 /** The three multipliers and the implied value one protocol gets under `model`. */
-export function impliedValue(protocol: SnapshotProtocol, asOf: string, model: ModelConstants): { implied: number; growthPct: number; growthMult: number; maturityMult: number; categoryMult: number; chainMult: number; age: number | null } {
+export function impliedValue(protocol: SnapshotProtocol, asOf: string, model: ModelConstants): { implied: number; growthPct: number; growthMult: number; maturityMult: number; categoryMult: number; chainMult: number; penalty: number; age: number | null } {
   const age = ageDays(asOf, protocol.listed_at);
   const rawGrowth = finite(protocol.change_7d, 0);
   const growthPct = Math.min(model.growth_cap, Math.max(model.growth_floor, rawGrowth));
@@ -222,8 +243,9 @@ export function impliedValue(protocol: SnapshotProtocol, asOf: string, model: Mo
   const group = categoryGroup(protocol.category);
   const categoryMult = group === 'fee-capture' ? model.fee_capture_multiple : group === 'pass-through' ? model.pass_through_multiple : 1;
   const chainMult = 1 + model.chain_step * Math.min(Math.max(protocol.chains.length - 1, 0), model.chain_cap);
-  const implied = Math.max(1, Math.round(base * growthMult * maturityMult * categoryMult * chainMult));
-  return { implied, growthPct, growthMult, maturityMult, categoryMult, chainMult, age };
+  const penalty = isWrappedStakedBridged(protocol) ? model.wrapped_staked_bridged_penalty : 1;
+  const implied = Math.max(1, Math.round(base * growthMult * maturityMult * categoryMult * chainMult * penalty));
+  return { implied, growthPct, growthMult, maturityMult, categoryMult, chainMult, penalty, age };
 }
 
 /** DefiLlama's version-marker rule: a name ending in a release is a pool of another protocol. */
@@ -307,6 +329,7 @@ export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL): B
       maturity_multiplier: round4(s.maturityMult),
       category_multiplier: round4(s.categoryMult),
       chain_multiplier: round4(s.chainMult),
+      penalty_multiplier: round4(s.penalty),
       age_days: s.age,
     },
     farm_steps: farmSteps(s.p, s.age).map(stepText),

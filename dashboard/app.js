@@ -14,6 +14,7 @@
   }
   var rows = DATA.rows;
   var M = DATA.model;
+  var SVG_NS = 'http:' + '//www.w3.org/2000/svg';
   var state = { q: '', category: 'all', sort: 'rank', selected: null };
 
   var SORTS = {
@@ -43,6 +44,25 @@
         if (v === null || v === undefined) return;
         if (k === 'class') node.className = v;
         else if (k === 'text') node.textContent = v;
+        else if (k.slice(0, 2) === 'on') node.addEventListener(k.slice(2), v);
+        else node.setAttribute(k, v);
+      });
+    }
+    for (var i = 2; i < arguments.length; i++) {
+      var c = arguments[i];
+      if (c === null || c === undefined) continue;
+      node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    }
+    return node;
+  }
+
+  function svg(tag, attrs) {
+    var node = document.createElementNS(SVG_NS, tag);
+    if (attrs) {
+      Object.keys(attrs).forEach(function (k) {
+        var v = attrs[k];
+        if (v === null || v === undefined) return;
+        if (k === 'class') node.setAttribute('class', v);
         else if (k.slice(0, 2) === 'on') node.addEventListener(k.slice(2), v);
         else node.setAttribute(k, v);
       });
@@ -150,7 +170,8 @@
       ['fee_capture_multiple', M.fee_capture_multiple, 'derivatives, options, prediction markets, chains, launchpads, DEXs'],
       ['pass_through_multiple', M.pass_through_multiple, 'staking, restaking, allocators, wrappers, bridges: TVL is custody'],
       ['chain_step', M.chain_step, 'credit per extra chain'],
-      ['chain_cap', M.chain_cap, 'maximum extra chains credited']
+      ['chain_cap', M.chain_cap, 'maximum extra chains credited'],
+      ['wrapped_staked_bridged_penalty', M.wrapped_staked_bridged_penalty, 'wrapped, staked or bridged products of a token that already trades are scaled by this instead of being excluded']
     ];
     var list = el('dl', { class: 'equation' });
     items.forEach(function (i) {
@@ -158,7 +179,7 @@
     });
     return el('section', { class: 'panel model', id: 'methodology' },
       el('h2', { text: 'Methodology' }),
-      el('p', { class: 'formula', text: 'implied = max(1, round(tvl x base_multiple x growth x maturity x category x chains)); growth = 1 + clamp(change_7d) / 100 x growth_weight; maturity = floor + min(age, maturity_days) / maturity_days x range; chains = 1 + chain_step x min(chains - 1, chain_cap).' }),
+      el('p', { class: 'formula', text: 'implied = max(1, round(tvl x base_multiple x growth x maturity x category x chains x wrapped_staked_bridged_penalty)); growth = 1 + clamp(change_7d) / 100 x growth_weight; maturity = floor + min(age, maturity_days) / maturity_days x range; chains = 1 + chain_step x min(chains - 1, chain_cap).' }),
       list,
       el('p', { class: 'sub', text: 'Model ' + DATA.model_version + '. Snapshot as of ' + DATA.as_of + ' (' + DATA.source + '). Figures come only from the snapshot; the implied value is a model output, not a price or a forecast.' }));
   }
@@ -167,6 +188,68 @@
     var head = el('tr');
     ['#', 'Protocol', 'Category', 'TVL', '7-day change', 'Implied value'].forEach(function (h) { head.appendChild(el('th', { scope: 'col', text: h })); });
     return el('div', { class: 'panel' }, el('div', { class: 'table-wrap' }, el('table', null, el('thead', null, head), tbody)));
+  }
+
+  function maxImplied() {
+    var m = 1;
+    rows.forEach(function (r) { if (r.implied_value_usd > m) m = r.implied_value_usd; });
+    return m;
+  }
+
+  function valueBars() {
+    var max = maxImplied();
+    var rowH = 12, gap = 4, pad = 12, labelW = 250, barMax = 640, valueW = 120;
+    var h = pad * 2 + rows.length * (rowH + gap);
+    var frame = el('div', { class: 'panel value-bars' },
+      el('h2', { text: 'Implied value by rank' }),
+      el('p', { class: 'sub', text: 'One horizontal bar per row, width relative to rank 1 (the board\u2019s top implied value of ' + fmtUsd(max) + ').' }));
+    var svg = svg('svg', { width: String(pad + labelW + barMax + valueW + pad), height: String(h) });
+    rows.forEach(function (r, i) {
+      var y = pad + i * (rowH + gap);
+      var barW = (r.implied_value_usd / max) * barMax;
+      var name = r.name.length > 42 ? r.name.slice(0, 40) + '\u2026' : r.name;
+      svg.appendChild(svg('text', { class: 'bar-label', x: '0', y: String(y + 8), text: (i + 1) + '  ' + name }));
+      svg.appendChild(svg('rect', { class: 'bar', x: String(labelW), y: String(y), width: String(Math.max(barW, 1)), height: String(rowH) }));
+      svg.appendChild(svg('text', { class: 'bar-value', x: String(labelW + barW + 8), y: String(y + 8), text: fmtUsd(r.implied_value_usd) }));
+    });
+    frame.appendChild(svg);
+    return frame;
+  }
+
+  function categoryPanel() {
+    var sums = {};
+    rows.forEach(function (r) {
+      var c = r.category || 'Uncategorised';
+      var e = sums[c];
+      if (!e) e = sums[c] = { count: 0, total: 0 };
+      e.count += 1;
+      e.total += r.implied_value_usd;
+    });
+    var keys = Object.keys(sums).sort(function (a, b) { return sums[b].total - sums[a].total || sums[b].count - sums[a].count; });
+    var total = 0;
+    keys.forEach(function (k) { total += sums[k].total; });
+    var frame = el('div', { class: 'panel category-summary' },
+      el('h2', { text: 'Category summary' }),
+      el('p', { class: 'sub', text: 'Each board category with its row count and total implied value.' }));
+    var table = el('table');
+    var head = el('tr');
+    ['Category', 'Rows', 'Total implied value'].forEach(function (h) { head.appendChild(el('th', { scope: 'col', text: h })); });
+    table.appendChild(el('thead', null, head));
+    var body = el('tbody');
+    keys.forEach(function (k) {
+      var s = sums[k];
+      body.appendChild(el('tr', null,
+        el('td', { text: k }),
+        el('td', { class: 'num', text: String(s.count) }),
+        el('td', { class: 'num', text: fmtUsd(s.total) })));
+    });
+    body.appendChild(el('tr', null,
+      el('td', { text: 'All categories' }),
+      el('td', { class: 'num', text: String(rows.length) }),
+      el('td', { class: 'num', text: fmtUsd(total) })));
+    table.appendChild(body);
+    frame.appendChild(table);
+    return frame;
   }
 
   root.appendChild(el('header', { class: 'top' },
@@ -181,6 +264,8 @@
     el('div', { class: 'field' }, el('label', { for: 'sort', text: 'Sort by' }), sortSelect),
     countLine));
   root.appendChild(table());
+  root.appendChild(valueBars());
+  root.appendChild(categoryPanel());
   root.appendChild(methodology());
   root.appendChild(detail);
   root.appendChild(el('footer', { class: 'sub site-footer' },
