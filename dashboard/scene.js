@@ -110,7 +110,7 @@
 
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var F = window.RADAR_FORMAT;
-    var cam = { yaw: 22 * DEG, pitch: 34 * DEG, zoom: 1, fit: 60 };
+    var cam = { yaw: 30 * DEG, pitch: 40 * DEG, zoom: 1, fit: 64 };
     var towers = [], count = 0, top = 1, hover = -1, vp = null, raf = 0, drag = null, dead = false;
     var width = 1, height = 1, dpr = 1;
 
