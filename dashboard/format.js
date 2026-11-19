@@ -34,7 +34,28 @@
     return n + ' ' + pluralise(n, 'chain');
   }
 
+  // Five category tones plus a sixth for wrapped, staked or bridged products (the model's penalty).
+  var TONES = ['#2ee6a8', '#6ad7ff', '#ffb454', '#b18cff', '#ff8fa3', '#ff6b6b'];
+  var TONE_NAMES = ['Trading', 'Credit', 'Yield', 'Assets', 'Other', 'Wrapped / staked / bridged'];
+  var TONE_OF = {
+    Dexs: 0, Derivatives: 0, 'Prediction Market': 0, Chain: 0, 'Basis Trading': 0, 'Liquidity Manager': 0,
+    Lending: 1, CDP: 1, 'Collateral Markets': 1, 'Uncollateralized Lending': 1, 'Leveraged Farming': 1, CeDeFi: 1,
+    Yield: 2, 'Yield Aggregator': 2, Farm: 2, 'Governance Incentives': 2, Indexes: 2,
+    RWA: 3, 'Onchain Capital Allocator': 3, 'Risk Curators': 3, 'Dual-Token Stablecoin': 3, 'Anchor BTC': 3, 'Decentralized BTC': 3
+  };
+  var PENALISED = ['Bridge', 'Canonical Bridge', 'Liquid Staking', 'Liquid Restaking', 'Restaking', 'Stablecoin Wrapper'];
+
+  // Tone index 0-5 for a board row: 5 when the model penalises it, otherwise by category group.
+  function toneOf(row) {
+    if (PENALISED.indexOf(row.category) >= 0 || /wrapped|staked|staking/i.test(row.name || '')) return 5;
+    var t = TONE_OF[row.category];
+    return t === undefined ? 4 : t;
+  }
+
   window.RADAR_FORMAT = {
+    toneOf: toneOf,
+    TONES: TONES,
+    TONE_NAMES: TONE_NAMES,
     formatUsd: formatUsd,
     formatPercent: formatPercent,
     pluralise: pluralise,
